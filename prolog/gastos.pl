@@ -312,12 +312,9 @@ texto_menu("0", 'Salir').
 % Auxiliar (menú): dibuja el título y las opciones, una debajo de otra (forall)
 mostrar_menu :-
     format(atom(Doble), "~`=t~40|", []), format(atom(Simple), "~`-t~40|", []),
-    nl, ansi_format([fg(cyan)], "~w", [Doble]), nl,
-    ansi_format([bold], "      GESTIÓN FINANCIERA PERSONAL", []), nl,
-    ansi_format([fg(cyan)], "~w", [Doble]), nl,
-    forall(texto_menu(N, T),
-           ( write('  '), ansi_format([fg(yellow)], "[~w]", [N]), format("  ~w~n", [T]) )),
-    ansi_format([fg(cyan)], "~w", [Simple]), nl.
+    format("~n~w~n      GESTIÓN FINANCIERA PERSONAL~n~w~n", [Doble, Doble]),
+    forall(texto_menu(N, T), format("  [~w]  ~w~n", [N, T])),
+    format("~w~n", [Simple]).
 
 % Recursión: menú de consola
 menu :-
