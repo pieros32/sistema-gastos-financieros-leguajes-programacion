@@ -1,3 +1,5 @@
+import re
+
 import numpy as np
 import pandas as pd
 
@@ -190,14 +192,64 @@ def f6():
         print(f"Ni todas las categorías alcanzan: faltan {soles(deficit - acum)}")
 
 
+# Auxiliar (F7): pide un dato hasta que `convertir` lo acepte; ValueError trae el motivo del rechazo
+def pedir(texto, convertir):
+    while True:
+        try:
+            return convertir(input(texto).strip())
+        except ValueError as error:
+            print(f"  {error}")
+
+
+# Auxiliar (F7): convertidor de un entero dentro de [minimo, maximo]
+def entero_en(minimo, maximo):
+    def convertir(texto):
+        if not texto.isdecimal() or not minimo <= int(texto) <= maximo:
+            raise ValueError(f"Ingrese un número entre {minimo} y {maximo}")
+        return int(texto)
+    return convertir
+
+
+# Auxiliar (F7): convertidor de soles con hasta dos decimales a céntimos, sin pasar por float
+def monto(texto):
+    m = re.fullmatch(r"(\d+)(?:\.(\d{1,2}))?", texto)
+    cent = int(m[1]) * CENT_POR_SOL + int((m[2] or "").ljust(2, "0")) if m else 0
+    if cent <= 0:
+        raise ValueError("Monto inválido: use un número positivo, por ejemplo 12.50")
+    return cent
+
+
+# F7: registra un gasto o ingreso hasta la fecha de corte (entrada por teclado, condicional, listas)
+def f7():
+    try:
+        es_gasto = pedir("Tipo (1 Gasto, 2 Ingreso): ", entero_en(1, 2)) == 1
+        mes = pedir(f"Mes ({MES_BASE} o {MES_CORTE}): ", entero_en(MES_BASE, MES_CORTE))
+        ultimo = DIA_CORTE if mes == MES_CORTE else ULTIMO_DIA
+        dia = pedir(f"Día ({PRIMER_DIA} a {ultimo}): ", entero_en(PRIMER_DIA, ultimo))
+        if es_gasto:
+            opciones = " | ".join(f"{i} {c}" for i, c in enumerate(CATEGORIAS, 1))
+            cat = CATEGORIAS[pedir(f"Categoría ({opciones}): ", entero_en(1, len(CATEGORIAS))) - 1]
+        cent = pedir("Monto en soles (ej. 12.50): ", monto)
+    except EOFError:
+        print("\nRegistro cancelado")
+        return
+    nuevo_id = max(m.id for m in GASTOS + INGRESOS) + 1
+    if es_gasto:
+        GASTOS.append(Gasto(nuevo_id, mes, dia, cat, cent))
+    else:
+        INGRESOS.append(Ingreso(nuevo_id, mes, dia, cent))
+    UMBRALES.update({c: estad(c) for c in CATEGORIAS})  # F4 depende de los gastos de agosto
+    print(f"Registrado n.º {nuevo_id}")
+
+
 # Clave y valor (dict): opciones del menú
-OPCIONES = {"1": f1, "2": f2, "3": f3, "4": f4, "5": f5, "6": f6}
+OPCIONES = {"1": f1, "2": f2, "3": f3, "4": f4, "5": f5, "6": f6, "7": f7}
 
 
 # Menú de consola con bucle while (sin recursión)
 def menu():
     while True:
-        print("\n1 F1  2 F2  3 F3  4 F4  5 F5  6 F6  0 Salir")
+        print("\n1 F1  2 F2  3 F3  4 F4  5 F5  6 F6  7 Registrar  0 Salir")
         try:
             op = input("> ").strip()
         except EOFError:

@@ -30,6 +30,7 @@ tope('Servicios', 20000).
 tope('Otros', 6000).
 
 % Datos (hechos): gasto(Id, Mes, Dia, Categoria, Centimos) e ingreso(Id, Mes, Dia, Centimos)
+:- dynamic gasto/5, ingreso/4.  % F7 agrega hechos nuevos con assertz
 gasto(2, 8, 1, 'Comida', 980).
 gasto(3, 8, 2, 'Comida', 920).
 gasto(4, 8, 2, 'Transporte', 500).
@@ -233,6 +234,62 @@ f6 :-
         )
     ).
 
+% Auxiliar (F7): pide un dato hasta que Conv lo acepte (Conv falla si no es válido); sin entrada lanza fin_de_entrada
+pedir(Prompt, Conv, Valor) :-
+    write(Prompt), flush_output,
+    read_line_to_string(user_input, L),
+    (   L == end_of_file -> throw(fin_de_entrada)
+    ;   normalize_space(string(T), L),
+        (   call(Conv, T, V) -> Valor = V
+        ;   writeln('  Valor inválido, intente de nuevo.'), pedir(Prompt, Conv, Valor)
+        )
+    ).
+
+% Auxiliar (F7): convertidores de texto a valor; fallan si el texto no es válido
+solo_digitos(T) :- T \== "", string_codes(T, Cs), forall(member(C, Cs), between(0'0, 0'9, C)).
+
+entero_en(Min, Max, T, N) :- solo_digitos(T), number_string(N, T), between(Min, Max, N).
+
+% Soles con hasta dos decimales a céntimos enteros, sin pasar por flotantes
+monto(T, Cent) :-
+    split_string(T, ".", "", Partes),
+    (   Partes = [Ent] -> Dec = ""
+    ;   Partes = [Ent, Dec], string_length(Dec, L), L =< 2, ( Dec == "" -> true ; solo_digitos(Dec) )
+    ),
+    solo_digitos(Ent), cent_por_sol(P),
+    format(string(Relleno), "~w00", [Dec]), sub_string(Relleno, 0, 2, _, Dd),
+    number_string(E, Ent), number_string(D, Dd),
+    Cent is E * P + D, Cent > 0.
+
+% Auxiliar (F7): categoría elegida de la lista numerada
+pedir_categoria(Cat) :-
+    categorias(Cs), length(Cs, N),
+    findall(O, (nth1(I, Cs, C), format(string(O), "~d ~w", [I, C])), Os),
+    atomic_list_concat(Os, ' | ', Txt), format(atom(Prompt), 'Categoría (~w): ', [Txt]),
+    pedir(Prompt, entero_en(1, N), Elegida), nth1(Elegida, Cs, Cat).
+
+% Auxiliar (F7): siguiente id, el mayor existente más uno
+nuevo_id(Id) :-
+    findall(I, (gasto(I, _, _, _, _) ; ingreso(I, _, _, _)), Is), max_list(Is, Max), Id is Max + 1.
+
+% Auxiliar (F7): pide los datos y agrega el hecho nuevo
+registrar :-
+    mes_base(MB), mes_corte(MC), dia_corte(DC), primer_dia(P), ultimo_dia(U),
+    pedir('Tipo (1 Gasto, 2 Ingreso): ', entero_en(1, 2), Tipo),
+    format(atom(PMes), 'Mes (~d o ~d): ', [MB, MC]), pedir(PMes, entero_en(MB, MC), Mes),
+    ( Mes =:= MC -> Ultimo = DC ; Ultimo = U ),
+    format(atom(PDia), 'Día (~d a ~d): ', [P, Ultimo]), pedir(PDia, entero_en(P, Ultimo), Dia),
+    ( Tipo =:= 1 -> pedir_categoria(Cat) ; true ),
+    pedir('Monto en soles (ej. 12.50): ', monto, Cent),
+    nuevo_id(Id),
+    (   Tipo =:= 1 -> assertz(gasto(Id, Mes, Dia, Cat, Cent))
+    ;   assertz(ingreso(Id, Mes, Dia, Cent))
+    ),
+    format("Registrado n.º ~d~n", [Id]).
+
+% F7: registra un gasto o ingreso hasta la fecha de corte (entrada por teclado, assertz, condicional)
+f7 :- catch(registrar, fin_de_entrada, writeln('\nRegistro cancelado')).
+
 % Opciones del menú (hechos)
 opcion("1") :- f1.
 opcion("2") :- f2.
@@ -240,10 +297,11 @@ opcion("3") :- f3.
 opcion("4") :- f4.
 opcion("5") :- f5.
 opcion("6") :- f6.
+opcion("7") :- f7.
 
 % Recursión: menú de consola
 menu :-
-    writeln('\n1 F1  2 F2  3 F3  4 F4  5 F5  6 F6  0 Salir'), write('> '), flush_output,
+    writeln('\n1 F1  2 F2  3 F3  4 F4  5 F5  6 F6  7 Registrar  0 Salir'), write('> '), flush_output,
     read_line_to_string(user_input, L),
     ( L == end_of_file -> O = "0" ; normalize_space(string(O), L) ),
     (   O == "0"
