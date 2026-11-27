@@ -216,10 +216,30 @@ final class Gastos(gastos: List[Gasto], ingresos: List[Ingreso]) {
     }
   }
 
+  // Auxiliar (menú): dibuja el título y las opciones, una debajo de otra
+  def mostrarMenu(): Unit = {
+    val opciones = List(
+      "1" -> "Totales por categoría",
+      "2" -> "Microgastos (gasto hormiga)",
+      "3" -> "Topes por categoría",
+      "4" -> "Gastos anómalos",
+      "5" -> "Saldo, liquidez y riesgo",
+      "6" -> "Plan de recorte",
+      "7" -> "Registrar gasto o ingreso",
+      "0" -> "Salir")
+    val doble = Console.CYAN + "=" * 40 + Console.RESET
+    val simple = Console.CYAN + "-" * 40 + Console.RESET
+    println(s"\n$doble")
+    println(s"${Console.BOLD}      GESTIÓN FINANCIERA PERSONAL${Console.RESET}")
+    println(doble)
+    opciones.foreach { case (n, texto) => println(s"  ${Console.YELLOW}[$n]${Console.RESET}  $texto") }
+    println(simple)
+  }
+
   // Recursión: menú de consola; con F7 continúa con el Gastos nuevo
   def menu(): Unit = {
-    println("\n1 F1  2 F2  3 F3  4 F4  5 F5  6 F6  7 Registrar  0 Salir")
-    Option(StdIn.readLine("> ")).map(_.trim) match {
+    mostrarMenu()
+    Option(StdIn.readLine("Elige una opción: ")).map(_.trim) match {
       case Some("1") => f1(); menu()
       case Some("2") => f2(); menu()
       case Some("3") => f3(); menu()

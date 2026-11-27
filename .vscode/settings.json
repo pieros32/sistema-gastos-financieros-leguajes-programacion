@@ -1,5 +1,10 @@
 {
     "files.watcherExclude": {
         "**/target/**": true
+    },
+    "code-runner.runInTerminal": true,
+    "code-runner.saveFileBeforeRun": true,
+    "code-runner.executorMap": {
+        "scala": "chcp 65001 ; scala-cli run --java-opt \"-Dfile.encoding=UTF-8\" --java-opt \"-Dsun.stdout.encoding=UTF-8\" $fullFileName"
     }
 }
