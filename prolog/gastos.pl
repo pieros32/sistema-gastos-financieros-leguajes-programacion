@@ -299,9 +299,26 @@ opcion("5") :- f5.
 opcion("6") :- f6.
 opcion("7") :- f7.
 
+% Clave y valor (hechos): texto de cada opción del menú, en el orden en que se muestran
+texto_menu("1", 'Totales por categoría').
+texto_menu("2", 'Microgastos (gasto hormiga)').
+texto_menu("3", 'Topes por categoría').
+texto_menu("4", 'Gastos anómalos').
+texto_menu("5", 'Saldo, liquidez y riesgo').
+texto_menu("6", 'Plan de recorte').
+texto_menu("7", 'Registrar gasto o ingreso').
+texto_menu("0", 'Salir').
+
+% Auxiliar (menú): dibuja el título y las opciones, una debajo de otra (forall)
+mostrar_menu :-
+    format(atom(Doble), "~`=t~40|", []), format(atom(Simple), "~`-t~40|", []),
+    format("~n~w~n      GESTIÓN FINANCIERA PERSONAL~n~w~n", [Doble, Doble]),
+    forall(texto_menu(N, T), format("  [~w]  ~w~n", [N, T])),
+    format("~w~n", [Simple]).
+
 % Recursión: menú de consola
 menu :-
-    writeln('\n1 F1  2 F2  3 F3  4 F4  5 F5  6 F6  7 Registrar  0 Salir'), write('> '), flush_output,
+    mostrar_menu, write('Elige una opción: '), flush_output,
     read_line_to_string(user_input, L),
     ( L == end_of_file -> O = "0" ; normalize_space(string(O), L) ),
     (   O == "0"
