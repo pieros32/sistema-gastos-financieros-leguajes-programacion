@@ -1,0 +1,11 @@
+# Carpetas generadas por Scala CLI y Metals
+.bsp/
+.scala-build/
+.metals/
+
+# IntelliJ IDEA y sus archivos compilados
+.idea/
+/out/
+
+# Caché de Python
+__pycache__/
