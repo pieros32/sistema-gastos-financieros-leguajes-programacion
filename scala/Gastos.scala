@@ -1,4 +1,5 @@
 import scala.io.StdIn
+import scala.util.Try
 import java.util.Locale
 
 object Gastos {
@@ -29,8 +30,8 @@ object Gastos {
   val CatsHormiga = List("Comida", "Otros")
   val Topes = Map("Comida" -> 20000, "Transporte" -> 8000, "Entretenimiento" -> 12000, "Servicios" -> 20000, "Otros" -> 6000)
 
-  // Datos (val, List): los 80 movimientos
-  val gastos = List(
+  // Datos (val, List): los 80 movimientos iniciales
+  val gastosIniciales = List(
     Gasto(2,8,1,"Comida",980), Gasto(3,8,2,"Comida",920), Gasto(4,8,2,"Transporte",500),
     Gasto(5,8,3,"Comida",700), Gasto(6,8,3,"Otros",1950), Gasto(7,8,4,"Transporte",550),
     Gasto(8,8,5,"Comida",830), Gasto(9,8,5,"Servicios",3500), Gasto(10,8,6,"Comida",1340),
@@ -57,7 +58,45 @@ object Gastos {
     Gasto(74,9,17,"Otros",500), Gasto(75,9,18,"Comida",800), Gasto(76,9,18,"Transporte",300),
     Gasto(77,9,19,"Comida",950), Gasto(78,9,19,"Entretenimiento",9500), Gasto(79,9,20,"Comida",700),
     Gasto(80,9,20,"Otros",700))
-  val ingresos = List(Ingreso(1,8,1,55000), Ingreso(31,8,21,10000), Ingreso(44,9,1,55000), Ingreso(64,9,12,10000))
+  val ingresosIniciales = List(Ingreso(1,8,1,55000), Ingreso(31,8,21,10000), Ingreso(44,9,1,55000), Ingreso(64,9,12,10000))
+
+  // Auxiliar (F7): pide un dato hasta que `convertir` lo acepte (None = inválido); sin más entrada devuelve None
+  def pedir[A](prompt: String, convertir: String => Option[A]): Option[A] =
+    Option(StdIn.readLine(prompt)).map(_.trim) match {
+      case None => None
+      case Some(texto) => convertir(texto) match {
+        case None => println("  Valor inválido, intente de nuevo."); pedir(prompt, convertir)
+        case valor => valor
+      }
+    }
+
+  // Auxiliar (F7): convertidor de un entero dentro de [min, max]
+  def enteroEn(min: Int, max: Int)(texto: String): Option[Int] =
+    Some(texto).filter(t => t.nonEmpty && t.forall(_.isDigit)).flatMap(t => Try(t.toInt).toOption)
+      .filter(n => n >= min && n <= max)
+
+  // Auxiliar (F7): convertidor de soles con hasta dos decimales a céntimos, sin pasar por Double
+  val FormatoMonto = """(\d+)(?:\.(\d{1,2}))?""".r
+  def monto(texto: String): Option[Int] = texto match {
+    case FormatoMonto(ent, dec) =>
+      Try(ent.toLong * CentPorSol.toInt + Option(dec).getOrElse("").padTo(2, '0').toInt).toOption
+        .filter(c => c > 0 && c <= Int.MaxValue).map(_.toInt)
+    case _ => None
+  }
+
+  // Auxiliar (F7): categoría elegida de la lista numerada
+  def pedirCategoria: Option[String] = {
+    val opciones = Categorias.zipWithIndex.map { case (c, i) => s"${i + 1} $c" }.mkString(" | ")
+    pedir(s"Categoría ($opciones): ", enteroEn(1, Categorias.size)).map(i => Categorias(i - 1))
+  }
+
+  def main(args: Array[String]): Unit = new Gastos(gastosIniciales, ingresosIniciales).menu()
+}
+
+import Gastos._
+
+// Los datos son inmutables: F7 no los modifica, devuelve un Gastos nuevo con el movimiento agregado
+final class Gastos(gastos: List[Gasto], ingresos: List[Ingreso]) {
 
   // Auxiliar: imprime céntimos como soles con 2 decimales (transformar)
   def soles(c: Double): String = "%.2f".formatLocal(Locale.US, c / CentPorSol)
@@ -159,9 +198,27 @@ object Gastos {
       else println(s"Ni todas las categorías alcanzan: faltan ${soles(deficit - filas.last._3)}")
     }
 
-  // Recursión: menú de consola
+  // F7: registra un gasto o ingreso hasta la fecha de corte (entrada por teclado, condicional, List inmutable)
+  def f7(): Gastos = {
+    val id = (gastos.map(_.id) ++ ingresos.map(_.id)).max + 1
+    val registro: Option[Gastos] = for {
+      tipo <- pedir("Tipo (1 Gasto, 2 Ingreso): ", enteroEn(1, 2))
+      mes <- pedir(s"Mes ($MesBase o $MesCorte): ", enteroEn(MesBase, MesCorte))
+      ultimo = if (mes == MesCorte) DiaCorte else UltimoDia
+      dia <- pedir(s"Día ($PrimerDia a $ultimo): ", enteroEn(PrimerDia, ultimo))
+      categoria <- if (tipo == 1) pedirCategoria.map(Option(_)) else Some(Option.empty[String])
+      cent <- pedir("Monto en soles (ej. 12.50): ", monto)
+    } yield categoria.fold(new Gastos(gastos, ingresos :+ Ingreso(id, mes, dia, cent)))(c =>
+      new Gastos(gastos :+ Gasto(id, mes, dia, c, cent), ingresos))
+    registro match {
+      case Some(nuevo) => println(s"Registrado n.º $id"); nuevo
+      case None => println("\nRegistro cancelado"); this
+    }
+  }
+
+  // Recursión: menú de consola; con F7 continúa con el Gastos nuevo
   def menu(): Unit = {
-    println("\n1 F1  2 F2  3 F3  4 F4  5 F5  6 F6  0 Salir")
+    println("\n1 F1  2 F2  3 F3  4 F4  5 F5  6 F6  7 Registrar  0 Salir")
     Option(StdIn.readLine("> ")).map(_.trim) match {
       case Some("1") => f1(); menu()
       case Some("2") => f2(); menu()
@@ -169,10 +226,9 @@ object Gastos {
       case Some("4") => f4(); menu()
       case Some("5") => f5(); menu()
       case Some("6") => f6(); menu()
+      case Some("7") => f7().menu()
       case Some("0") | None => println("Fin")
       case _ => println("Opción inválida"); menu()
     }
   }
-
-  def main(args: Array[String]): Unit = menu()
 }
